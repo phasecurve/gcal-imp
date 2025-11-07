@@ -1,0 +1,16 @@
+# Build artifacts
+/target/
+target/
+**/*.rs.bk
+
+# Local temp dirs
+tmp_home/
+/tmp_home/
+
+# IDE / editor
+.idea/
+.vscode/
+
+# Misc
+.DS_Store
+*.log
