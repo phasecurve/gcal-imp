@@ -318,6 +318,26 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{TimeZone, Utc};
+
+    fn create_event_at(id: &str, date: NaiveDate, hour: u32) -> Event {
+        let start = Utc.from_local_datetime(&date.and_hms_opt(hour, 0, 0).unwrap()).unwrap();
+        Event {
+            id: id.to_string(),
+            calendar_id: "primary".to_string(),
+            title: format!("Event {}", id),
+            description: None,
+            location: None,
+            start,
+            end: start + chrono::Duration::hours(1),
+            all_day: false,
+            attendees: vec![],
+            reminders: vec![],
+            status: crate::calendar::EventStatus::Confirmed,
+            last_modified: Utc::now(),
+            html_link: None,
+        }
+    }
 
     #[test]
     fn new_app_starts_in_normal_mode() {
@@ -374,62 +394,13 @@ mod tests {
 
     #[test]
     fn get_events_for_date_returns_matching_events() {
-        use chrono::{TimeZone, Utc};
         let mut app = AppState::new();
         let date = chrono::NaiveDate::from_ymd_opt(2025, 1, 15).unwrap();
-
-        let event1 = Event {
-            id: "event1".to_string(),
-            calendar_id: "primary".to_string(),
-            title: "Morning Meeting".to_string(),
-            description: None,
-            location: None,
-            start: Utc.from_local_datetime(&date.and_hms_opt(9, 0, 0).unwrap()).unwrap(),
-            end: Utc.from_local_datetime(&date.and_hms_opt(10, 0, 0).unwrap()).unwrap(),
-            all_day: false,
-            attendees: vec![],
-            reminders: vec![],
-            status: crate::calendar::EventStatus::Confirmed,
-            last_modified: Utc::now(),
-            html_link: None,
-        };
-
-        let event2 = Event {
-            id: "event2".to_string(),
-            calendar_id: "primary".to_string(),
-            title: "Afternoon Meeting".to_string(),
-            description: None,
-            location: None,
-            start: Utc.from_local_datetime(&date.and_hms_opt(14, 0, 0).unwrap()).unwrap(),
-            end: Utc.from_local_datetime(&date.and_hms_opt(15, 0, 0).unwrap()).unwrap(),
-            all_day: false,
-            attendees: vec![],
-            reminders: vec![],
-            status: crate::calendar::EventStatus::Confirmed,
-            last_modified: Utc::now(),
-            html_link: None,
-        };
-
         let other_date = chrono::NaiveDate::from_ymd_opt(2025, 1, 16).unwrap();
-        let event3 = Event {
-            id: "event3".to_string(),
-            calendar_id: "primary".to_string(),
-            title: "Other Day".to_string(),
-            description: None,
-            location: None,
-            start: Utc.from_local_datetime(&other_date.and_hms_opt(10, 0, 0).unwrap()).unwrap(),
-            end: Utc.from_local_datetime(&other_date.and_hms_opt(11, 0, 0).unwrap()).unwrap(),
-            all_day: false,
-            attendees: vec![],
-            reminders: vec![],
-            status: crate::calendar::EventStatus::Confirmed,
-            last_modified: Utc::now(),
-            html_link: None,
-        };
 
-        app.add_event(event1);
-        app.add_event(event2);
-        app.add_event(event3);
+        app.add_event(create_event_at("event1", date, 9));
+        app.add_event(create_event_at("event2", date, 14));
+        app.add_event(create_event_at("event3", other_date, 10));
 
         let events = app.get_events_for_date(date);
 
