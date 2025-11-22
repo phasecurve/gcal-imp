@@ -32,20 +32,25 @@ pub fn calculate_layout(state: &AppState) -> YearLayout {
     let mut months = Vec::new();
 
     for month in 1..=12 {
-        let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
-        let days_in_month = if month == 12 {
+        let Some(first_day) = NaiveDate::from_ymd_opt(year, month, 1) else {
+            continue;
+        };
+
+        let next_month_first = if month == 12 {
             NaiveDate::from_ymd_opt(year + 1, 1, 1)
         } else {
             NaiveDate::from_ymd_opt(year, month + 1, 1)
-        }
-        .unwrap()
-        .signed_duration_since(first_day)
-        .num_days() as u32;
+        };
+
+        let Some(next_first) = next_month_first else { continue };
+        let days_in_month = next_first.signed_duration_since(first_day).num_days() as u32;
 
         let mut days = Vec::new();
 
         for day in 1..=days_in_month {
-            let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
+            let Some(date) = NaiveDate::from_ymd_opt(year, month, day) else {
+                continue;
+            };
             let has_events = !state.get_events_for_date(date).is_empty();
 
             days.push(DayCell {

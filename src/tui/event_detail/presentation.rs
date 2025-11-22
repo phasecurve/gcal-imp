@@ -1,3 +1,4 @@
+use std::sync::OnceLock;
 use ratatui::{
     layout::Alignment,
     style::{Color, Modifier, Style},
@@ -8,6 +9,23 @@ use ratatui::{
 use regex::Regex;
 use gcal_imp::{app::AppState, calendar::Event as CalendarEvent};
 use super::content_formatting::strip_html;
+
+static MARKDOWN_LINK_RE: OnceLock<Regex> = OnceLock::new();
+static PLAIN_URL_RE: OnceLock<Regex> = OnceLock::new();
+
+fn markdown_link_pattern() -> &'static Regex {
+    MARKDOWN_LINK_RE.get_or_init(|| {
+        Regex::new(r"\[([^\]]+)\]\((https?://[^\)]+)\)")
+            .expect("invalid markdown link regex")
+    })
+}
+
+fn plain_url_pattern() -> &'static Regex {
+    PLAIN_URL_RE.get_or_init(|| {
+        Regex::new(r"(https?://[^\s\)]+)")
+            .expect("invalid plain url regex")
+    })
+}
 
 pub fn refresh_detail_view_lines(app: &mut AppState) {
     if let Some(event_id) = &app.detail_view_event_id {
@@ -161,16 +179,16 @@ pub fn render(f: &mut Frame, app: &AppState) {
             if line_owned.trim().is_empty() {
                 lines.push(Line::from(""));
             } else {
-                let markdown_link_pattern = Regex::new(r"\[([^\]]+)\]\((https?://[^\)]+)\)").unwrap();
-                let plain_url_pattern = Regex::new(r"(https?://[^\s\)]+)").unwrap();
+                let md_pattern = markdown_link_pattern();
+                let url_pattern = plain_url_pattern();
                 let mut spans = Vec::new();
                 let mut last_end = 0;
 
                 tracing::info!("render_event_detail: searching for markdown links in line {}", line_num);
-                let markdown_captures: Vec<_> = markdown_link_pattern.captures_iter(&line_owned).collect();
+                let markdown_captures: Vec<_> = md_pattern.captures_iter(&line_owned).collect();
                 tracing::info!("render_event_detail: found {} markdown link matches", markdown_captures.len());
                 for cap in markdown_captures {
-                    let m = cap.get(0).unwrap();
+                    let Some(m) = cap.get(0) else { continue };
                     tracing::info!("render_event_detail: markdown link match at {}..{}", m.start(), m.end());
                     if m.start() > last_end {
                         tracing::info!("render_event_detail: adding text span from {}..{}", last_end, m.start());
@@ -190,11 +208,11 @@ pub fn render(f: &mut Frame, app: &AppState) {
                     last_end = line_owned.len();
                 }
                 tracing::info!("render_event_detail: about to iterate plain URL captures");
-                let plain_captures: Vec<_> = plain_url_pattern.captures_iter(&line_owned[last_end..]).collect();
+                let plain_captures: Vec<_> = url_pattern.captures_iter(&line_owned[last_end..]).collect();
                 tracing::info!("render_event_detail: found {} plain URL matches", plain_captures.len());
                 for (idx, cap) in plain_captures.iter().enumerate() {
                     tracing::info!("render_event_detail: processing plain URL match {}", idx);
-                    let m = cap.get(0).unwrap();
+                    let Some(m) = cap.get(0) else { continue };
                     let abs_start = last_end + m.start();
                     let abs_end = last_end + m.end();
                     tracing::info!("render_event_detail: plain URL match at {}..{} (abs {}..{})", m.start(), m.end(), abs_start, abs_end);
