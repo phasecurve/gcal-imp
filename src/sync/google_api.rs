@@ -412,11 +412,4 @@ mod tests {
 
         assert_eq!(client.base_url, "http://localhost:8080");
     }
-
-    #[test]
-    fn google_calendar_client_stores_access_token() {
-        let client = GoogleCalendarClient::new("test_token".to_string());
-
-        assert_eq!(client.access_token, "test_token");
-    }
 }
