@@ -247,7 +247,7 @@ mod tests {
     }
 
     #[test]
-    fn j_key_moves_down_one_week() {
+    fn j_key_moves_down_one_week_when_no_events() {
         let mut state = AppState::new();
         state.selected_date = date(2025, 1, 15);
 
@@ -257,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn k_key_moves_up_one_week() {
+    fn k_key_moves_up_one_week_when_no_events() {
         let mut state = AppState::new();
         state.selected_date = date(2025, 1, 15);
 
