@@ -1,4 +1,5 @@
 use std::io;
+use std::sync::OnceLock;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event as TermEvent, KeyCode, KeyEventKind},
     execute,
@@ -343,8 +344,17 @@ fn handle_open_url(app: &AppState) {
             if app.detail_view_cursor_line < all_lines.len() {
                 let line_text = &all_lines[app.detail_view_cursor_line];
 
-                let markdown_link_pattern = Regex::new(r"\[([^\]]+)\]\((https?://[^\)]+)\)").unwrap();
-                let plain_url_pattern = Regex::new(r"(https?://[^\s\)]+)").unwrap();
+                static MARKDOWN_LINK_RE: OnceLock<Regex> = OnceLock::new();
+                static PLAIN_URL_RE: OnceLock<Regex> = OnceLock::new();
+
+                let markdown_link_pattern = MARKDOWN_LINK_RE.get_or_init(|| {
+                    Regex::new(r"\[([^\]]+)\]\((https?://[^\)]+)\)")
+                        .expect("invalid markdown link regex")
+                });
+                let plain_url_pattern = PLAIN_URL_RE.get_or_init(|| {
+                    Regex::new(r"(https?://[^\s\)]+)")
+                        .expect("invalid plain url regex")
+                });
 
                 let url_to_open = if let Some(cap) = markdown_link_pattern.captures(line_text) {
                     cap.get(2).map(|m| m.as_str())

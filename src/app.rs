@@ -206,10 +206,10 @@ impl EventForm {
     pub fn parse_duration_input(&mut self) {
         if let Ok(value) = self.duration_input_buffer.parse::<u32>() {
             if self.all_day {
-                let days = value.max(1).min(365);
+                let days = value.clamp(1, 365);
                 self.duration_minutes = days * 24 * 60;
             } else {
-                self.duration_minutes = value.max(1).min(10080);
+                self.duration_minutes = value.clamp(1, 10080);
             }
         }
     }
@@ -312,6 +312,12 @@ impl AppState {
         } else {
             false
         }
+    }
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

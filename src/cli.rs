@@ -25,13 +25,16 @@ pub fn parse_cli_mode() -> Result<CliMode, String> {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--agenda" => {
-                let target_date = match args.peek() {
-                    Some(next) if !next.starts_with("--") => {
-                        let date_str = args.next().unwrap();
+                let target_date = if let Some(next) = args.peek() {
+                    if !next.starts_with("--") {
+                        let date_str = args.next().expect("peeked value must exist");
                         NaiveDate::parse_from_str(&date_str, "%Y/%m/%d")
                             .map_err(|_| format!("Invalid date '{}'. Use YYYY/MM/DD.", date_str))?
+                    } else {
+                        Local::now().date_naive()
                     }
-                    _ => Local::now().date_naive(),
+                } else {
+                    Local::now().date_naive()
                 };
                 mode = CliMode::AgendaDate(target_date);
             }
@@ -48,7 +51,7 @@ pub fn parse_cli_mode() -> Result<CliMode, String> {
 
 pub async fn run_agenda_mode(date: NaiveDate) -> Result<(), io::Error> {
     let config = Config::load_or_create()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| io::Error::other(e.to_string()))?;
     let mut sync_engine = SyncEngine::new(config);
 
     let mut events = match sync_engine.fetch_events(date, date).await {
