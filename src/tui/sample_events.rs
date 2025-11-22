@@ -1,0 +1,41 @@
+use chrono::{Local, TimeZone, Utc};
+use gcal_imp::{
+    app::AppState,
+    calendar::{Event as CalendarEvent, EventStatus},
+};
+
+pub fn add_sample_events(app: &mut AppState) {
+    let today = Local::now().date_naive();
+
+    let events = vec![
+        ("Morning Standup", today, 9, 0, 9, 30, None),
+        ("Team Sync", today, 14, 0, 15, 0, Some("Conference Room A")),
+        ("Code Review", today.succ_opt().unwrap(), 10, 0, 11, 0, None),
+        ("Sprint Planning", today.succ_opt().unwrap(), 15, 0, 16, 30, Some("Zoom")),
+        ("1-on-1 with Manager", today.pred_opt().unwrap(), 11, 0, 11, 30, None),
+        ("Lunch with Team", today.pred_opt().unwrap(), 12, 30, 13, 30, Some("Downtown Cafe")),
+    ];
+
+    for (i, (title, date, start_h, start_m, end_h, end_m, location)) in events.into_iter().enumerate() {
+        let start = Utc.from_local_datetime(&date.and_hms_opt(start_h, start_m, 0).unwrap()).unwrap();
+        let end = Utc.from_local_datetime(&date.and_hms_opt(end_h, end_m, 0).unwrap()).unwrap();
+
+        let event = CalendarEvent {
+            id: format!("sample_{}", i),
+            calendar_id: "primary".to_string(),
+            title: title.to_string(),
+            description: Some("Sample event for testing".to_string()),
+            location: location.map(String::from),
+            start,
+            end,
+            all_day: false,
+            attendees: vec![],
+            reminders: vec![],
+            status: EventStatus::Confirmed,
+            last_modified: Utc::now(),
+            html_link: None,
+        };
+
+        app.add_event(event);
+    }
+}
