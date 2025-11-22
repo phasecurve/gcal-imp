@@ -122,9 +122,30 @@ pub fn calculate_layout(state: &AppState) -> MonthLayout {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
+    use crate::calendar::{Event, EventStatus};
 
     fn date(year: i32, month: u32, day: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(year, month, day).unwrap()
+    }
+
+    fn create_event_on_date(id: &str, event_date: NaiveDate) -> Event {
+        let start = event_date.and_hms_opt(10, 0, 0).unwrap().and_utc();
+        Event {
+            id: id.to_string(),
+            calendar_id: "primary".to_string(),
+            title: "Event".to_string(),
+            description: None,
+            location: None,
+            start,
+            end: start + chrono::Duration::hours(1),
+            all_day: false,
+            attendees: vec![],
+            reminders: vec![],
+            status: EventStatus::Confirmed,
+            last_modified: Utc::now(),
+            html_link: None,
+        }
     }
 
     #[test]
@@ -166,31 +187,10 @@ mod tests {
 
     #[test]
     fn cells_with_events_are_marked() {
-        use chrono::Utc;
-        use crate::calendar::{Event, EventStatus};
-
         let mut state = AppState::new();
         state.selected_date = date(2025, 1, 15);
-
         let event_date = date(2025, 1, 10);
-        let start = event_date.and_hms_opt(10, 0, 0).unwrap().and_utc();
-        let event = Event {
-            id: "event1".to_string(),
-            calendar_id: "primary".to_string(),
-            title: "Meeting".to_string(),
-            description: None,
-            location: None,
-            start,
-            end: start + chrono::Duration::hours(1),
-            all_day: false,
-            attendees: vec![],
-            reminders: vec![],
-            status: EventStatus::Confirmed,
-            last_modified: Utc::now(),
-            html_link: None,
-        };
-
-        state.add_event(event);
+        state.add_event(create_event_on_date("event1", event_date));
 
         let layout = calculate_layout(&state);
 
