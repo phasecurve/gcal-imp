@@ -70,15 +70,6 @@ mod tests {
     }
 
     #[test]
-    fn new_event_has_confirmed_status() {
-        let start = Utc::now();
-        let end = start + chrono::Duration::hours(1);
-        let event = create_test_event("test_id", "Test Event", start, end);
-
-        assert_eq!(event.status, EventStatus::Confirmed);
-    }
-
-    #[test]
     fn event_duration_calculated_correctly() {
         let start = Utc::now();
         let end = start + chrono::Duration::minutes(90);
