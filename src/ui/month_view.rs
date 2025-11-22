@@ -59,13 +59,18 @@ pub fn calculate_layout(state: &AppState) -> MonthLayout {
     let month = state.selected_date.month();
     let today = chrono::Local::now().date_naive();
 
-    let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
-    let last_day = if month == 12 {
-        NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
-            .pred_opt().unwrap()
+    let Some(first_day) = NaiveDate::from_ymd_opt(year, month, 1) else {
+        return MonthLayout { year, month, weeks: Vec::new() };
+    };
+
+    let next_month_first = if month == 12 {
+        NaiveDate::from_ymd_opt(year + 1, 1, 1)
     } else {
-        NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
-            .pred_opt().unwrap()
+        NaiveDate::from_ymd_opt(year, month + 1, 1)
+    };
+
+    let Some(last_day) = next_month_first.and_then(|d| d.pred_opt()) else {
+        return MonthLayout { year, month, weeks: Vec::new() };
     };
 
     let mut weeks = Vec::new();
@@ -75,8 +80,8 @@ pub fn calculate_layout(state: &AppState) -> MonthLayout {
     let days_before = start_weekday.num_days_from_monday() as i64;
 
     for i in 0..days_before {
-        let prev_date = first_day.pred_opt().unwrap()
-            .checked_sub_days(chrono::Days::new((days_before - i - 1) as u64));
+        let prev_date = first_day.pred_opt()
+            .and_then(|d| d.checked_sub_days(chrono::Days::new((days_before - i - 1) as u64)));
 
         current_week.days.push(
             DayCell::new(prev_date)
@@ -101,7 +106,8 @@ pub fn calculate_layout(state: &AppState) -> MonthLayout {
             current_week = Week { days: Vec::new() };
         }
 
-        current_date = current_date.succ_opt().unwrap();
+        let Some(next) = current_date.succ_opt() else { break };
+        current_date = next;
     }
 
     if !current_week.days.is_empty() {
@@ -111,7 +117,8 @@ pub fn calculate_layout(state: &AppState) -> MonthLayout {
                 DayCell::new(Some(next_date))
                     .with_current_month(false)
             );
-            current_date = current_date.succ_opt().unwrap();
+            let Some(next) = current_date.succ_opt() else { break };
+            current_date = next;
         }
         weeks.push(current_week);
     }

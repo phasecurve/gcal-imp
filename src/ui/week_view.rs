@@ -34,8 +34,9 @@ pub struct EventBlock {
 impl WeekLayout {
     pub fn week_of_date(date: NaiveDate) -> NaiveDate {
         let weekday = date.weekday();
-        let days_from_monday = weekday.num_days_from_monday() as i64;
-        date.checked_sub_days(chrono::Days::new(days_from_monday as u64)).unwrap()
+        let days_from_monday = weekday.num_days_from_monday() as u64;
+        date.checked_sub_days(chrono::Days::new(days_from_monday))
+            .unwrap_or(date)
     }
 }
 
@@ -45,8 +46,10 @@ pub fn calculate_layout(state: &AppState) -> WeekLayout {
 
     let mut days = Vec::new();
 
-    for day_offset in 0..7 {
-        let date = week_start.checked_add_days(chrono::Days::new(day_offset)).unwrap();
+    for day_offset in 0..7u64 {
+        let Some(date) = week_start.checked_add_days(chrono::Days::new(day_offset)) else {
+            continue;
+        };
         let events = state.get_events_for_date(date);
 
         let time_slots = build_time_slots(&events);

@@ -153,22 +153,26 @@ fn show_help(state: &mut AppState) {
 fn handle_gg_motion(state: &mut AppState) {
     let year = state.selected_date.year();
     let month = state.selected_date.month();
-    state.selected_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+    if let Some(first) = NaiveDate::from_ymd_opt(year, month, 1) {
+        state.selected_date = first;
+    }
 }
 
 fn move_to_end_of_month(state: &mut AppState) {
     let year = state.selected_date.year();
     let month = state.selected_date.month();
 
-    let last_day = if month == 12 {
-        NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
-            .checked_sub_days(Days::new(1)).unwrap()
+    let next_month_first = if month == 12 {
+        NaiveDate::from_ymd_opt(year + 1, 1, 1)
     } else {
-        NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
-            .checked_sub_days(Days::new(1)).unwrap()
+        NaiveDate::from_ymd_opt(year, month + 1, 1)
     };
 
-    state.selected_date = last_day;
+    if let Some(first) = next_month_first {
+        if let Some(last_day) = first.checked_sub_days(Days::new(1)) {
+            state.selected_date = last_day;
+        }
+    }
 }
 
 fn move_previous_month(state: &mut AppState) {
@@ -182,15 +186,16 @@ fn move_previous_month(state: &mut AppState) {
         (year, month - 1)
     };
 
-    let last_day_of_new_month = NaiveDate::from_ymd_opt(new_year, new_month + 1, 1)
-        .or_else(|| NaiveDate::from_ymd_opt(new_year + 1, 1, 1))
-        .unwrap()
-        .checked_sub_days(Days::new(1))
-        .unwrap()
-        .day();
+    let next_month_first = NaiveDate::from_ymd_opt(new_year, new_month + 1, 1)
+        .or_else(|| NaiveDate::from_ymd_opt(new_year + 1, 1, 1));
 
-    let new_day = day.min(last_day_of_new_month);
-    state.selected_date = NaiveDate::from_ymd_opt(new_year, new_month, new_day).unwrap();
+    let Some(first) = next_month_first else { return };
+    let Some(last) = first.checked_sub_days(Days::new(1)) else { return };
+
+    let new_day = day.min(last.day());
+    if let Some(new_date) = NaiveDate::from_ymd_opt(new_year, new_month, new_day) {
+        state.selected_date = new_date;
+    }
 }
 
 fn move_next_month(state: &mut AppState) {
@@ -204,18 +209,19 @@ fn move_next_month(state: &mut AppState) {
         (year, month + 1)
     };
 
-    let last_day_of_new_month = if new_month == 12 {
+    let next_month_first = if new_month == 12 {
         NaiveDate::from_ymd_opt(new_year + 1, 1, 1)
     } else {
         NaiveDate::from_ymd_opt(new_year, new_month + 1, 1)
-    }
-    .unwrap()
-    .checked_sub_days(Days::new(1))
-    .unwrap()
-    .day();
+    };
 
-    let new_day = day.min(last_day_of_new_month);
-    state.selected_date = NaiveDate::from_ymd_opt(new_year, new_month, new_day).unwrap();
+    let Some(first) = next_month_first else { return };
+    let Some(last) = first.checked_sub_days(Days::new(1)) else { return };
+
+    let new_day = day.min(last.day());
+    if let Some(new_date) = NaiveDate::from_ymd_opt(new_year, new_month, new_day) {
+        state.selected_date = new_date;
+    }
 }
 
 #[cfg(test)]
