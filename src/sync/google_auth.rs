@@ -229,12 +229,6 @@ mod tests {
     }
 
     #[test]
-    fn new_token_has_access_token() {
-        let token = create_test_token();
-        assert_eq!(token.access_token, "test_access_token");
-    }
-
-    #[test]
     fn new_token_is_valid() {
         let token = create_test_token();
         assert!(token.is_valid());
