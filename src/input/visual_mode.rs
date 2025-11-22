@@ -97,7 +97,7 @@ mod tests {
     }
 
     #[test]
-    fn enter_creates_event_form_for_range() {
+    fn enter_creates_multiday_event_form_for_visual_range() {
         let mut state = setup_visual_state();
         state.selected_date = state.selected_date.checked_add_days(Days::new(2)).unwrap();
 
