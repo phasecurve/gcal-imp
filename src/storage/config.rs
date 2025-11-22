@@ -128,20 +128,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_config_has_15_minute_sync_interval() {
+    fn default_config_has_expected_sync_settings() {
         let config = Config::default();
         assert_eq!(config.sync.auto_sync_interval_minutes, 15);
-    }
-
-    #[test]
-    fn default_config_syncs_90_days_past() {
-        let config = Config::default();
         assert_eq!(config.sync.sync_past_days, 90);
-    }
-
-    #[test]
-    fn default_config_syncs_365_days_future() {
-        let config = Config::default();
         assert_eq!(config.sync.sync_future_days, 365);
     }
 
