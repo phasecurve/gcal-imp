@@ -14,16 +14,20 @@ use gcal_imp::{
 
 #[derive(Clone, Copy)]
 pub enum CliMode {
-    Default,
+    Default { sample: bool },
     AgendaDate(NaiveDate),
 }
 
 pub fn parse_cli_mode() -> Result<CliMode, String> {
-    let mut mode = CliMode::Default;
+    let mut sample = false;
+    let mut agenda_date = None;
     let mut args = env::args().skip(1).peekable();
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--sample" => {
+                sample = true;
+            }
             "--agenda" => {
                 let target_date = if let Some(next) = args.peek() {
                     if !next.starts_with("--") {
@@ -36,17 +40,21 @@ pub fn parse_cli_mode() -> Result<CliMode, String> {
                 } else {
                     Local::now().date_naive()
                 };
-                mode = CliMode::AgendaDate(target_date);
+                agenda_date = Some(target_date);
             }
             "--help" => {
-                println!("Usage: gcal-imp [--agenda [YYYY/MM/DD]]");
+                println!("Usage: gcal-imp [--agenda [YYYY/MM/DD]] [--sample]");
                 std::process::exit(0);
             }
             _ => return Err(format!("Unknown argument: {}", arg)),
         }
     }
 
-    Ok(mode)
+    if let Some(date) = agenda_date {
+        Ok(CliMode::AgendaDate(date))
+    } else {
+        Ok(CliMode::Default { sample })
+    }
 }
 
 pub async fn run_agenda_mode(date: NaiveDate) -> Result<(), io::Error> {
@@ -97,10 +105,10 @@ fn build_agenda_line(event: &CalendarEvent, width: usize) -> String {
     };
 
     let mut line = format!("{:<13} {}", time_label, event.title);
-    if let Some(location) = &event.location {
-        if !location.is_empty() {
-            line.push_str(&format!(" @ {}", location));
-        }
+    if let Some(location) = &event.location
+        && !location.is_empty()
+    {
+        line.push_str(&format!(" @ {}", location));
     }
     truncate_to_width(&line, width)
 }

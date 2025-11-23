@@ -30,9 +30,9 @@ use crate::tui::{
     },
 };
 
-pub async fn run_tui() -> Result<(), io::Error> {
+pub async fn run_tui(sample: bool) -> Result<(), io::Error> {
     let config = Config::load_or_create()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| io::Error::other(e.to_string()))?;
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -48,6 +48,10 @@ pub async fn run_tui() -> Result<(), io::Error> {
     app.sync_status = SyncStatus::Syncing;
     terminal.draw(|f| ui(f, &app)).ok();
 
+    if sample {
+        add_sample_events(&mut app);
+    }
+
     match sync_engine.fetch_events_around_date(app.selected_date).await {
         Ok(events) => {
             for event in events {
@@ -57,7 +61,6 @@ pub async fn run_tui() -> Result<(), io::Error> {
         }
         Err(e) => {
             app.sync_status = SyncStatus::Error(format!("Sync failed: {}", e));
-            add_sample_events(&mut app);
         }
     }
 
@@ -96,39 +99,39 @@ async fn run_app<B: ratatui::backend::Backend>(
             let _ = event::read()?;
         }
 
-        if let TermEvent::Key(key) = event::read()? {
-            if key.kind == KeyEventKind::Press {
-                match app.mode {
-                    Mode::Normal => {
-                        if app.show_help {
-                            handle_help_keys(key.code, app);
-                        } else if app.detail_view_event_id.is_some() {
-                            if handle_detail_view_keys(key.code, app)? {
-                                return Ok(());
-                            }
-                        } else {
-                            match key.code {
-                                KeyCode::Char('q') => return Ok(()),
-                                _ => normal_mode::handle_key(key.code, app),
-                            }
-                        }
-                    }
-                    Mode::Command => {
-                        if handle_command_mode(key.code, app, terminal, &mut sync_engine).await? {
+        if let TermEvent::Key(key) = event::read()?
+            && key.kind == KeyEventKind::Press
+        {
+            match app.mode {
+                Mode::Normal => {
+                    if app.show_help {
+                        handle_help_keys(key.code, app);
+                    } else if app.detail_view_event_id.is_some() {
+                        if handle_detail_view_keys(key.code, app)? {
                             return Ok(());
                         }
-                    }
-                    Mode::Insert => {
-                        if handle_insert_mode(key.code, app, terminal, &mut sync_engine).await? {
-                            return Ok(());
+                    } else {
+                        match key.code {
+                            KeyCode::Char('q') => return Ok(()),
+                            _ => normal_mode::handle_key(key.code, app),
                         }
                     }
-                    Mode::Visual => {
-                        if app.delete_confirmation_event_id.is_some() {
-                            handle_delete_confirmation(key.code, app, terminal, &mut sync_engine).await?;
-                        } else {
-                            visual_mode::handle_key(key.code, app);
-                        }
+                }
+                Mode::Command => {
+                    if handle_command_mode(key.code, app, terminal, &mut sync_engine).await? {
+                        return Ok(());
+                    }
+                }
+                Mode::Insert => {
+                    if handle_insert_mode(key.code, app, terminal, &mut sync_engine).await? {
+                        return Ok(());
+                    }
+                }
+                Mode::Visual => {
+                    if app.delete_confirmation_event_id.is_some() {
+                        handle_delete_confirmation(key.code, app, terminal, &mut sync_engine).await?;
+                    } else {
+                        visual_mode::handle_key(key.code, app);
                     }
                 }
             }
@@ -241,15 +244,15 @@ fn handle_detail_view_keys(code: KeyCode, app: &mut AppState) -> io::Result<bool
             Ok(false)
         }
         KeyCode::Char('E') => {
-            if let Some(event_id) = &app.detail_view_event_id {
-                if let Some(event) = app.events.get(event_id).cloned() {
-                    app.event_form = Some(EventForm::for_event(&event));
-                    app.mode = Mode::Insert;
-                    app.detail_view_event_id = None;
-                    app.detail_view_scroll = 0;
-                    app.detail_view_cursor_line = 0;
-                    app.detail_view_cursor_col = 0;
-                }
+            if let Some(event_id) = &app.detail_view_event_id
+                && let Some(event) = app.events.get(event_id).cloned()
+            {
+                app.event_form = Some(EventForm::for_event(&event));
+                app.mode = Mode::Insert;
+                app.detail_view_event_id = None;
+                app.detail_view_scroll = 0;
+                app.detail_view_cursor_line = 0;
+                app.detail_view_cursor_col = 0;
             }
             Ok(false)
         }
@@ -290,89 +293,89 @@ fn handle_detail_view_keys(code: KeyCode, app: &mut AppState) -> io::Result<bool
 
 fn handle_open_url(app: &AppState) {
     tracing::info!("Attempting to open URL at cursor position");
-    if let Some(event_id) = &app.detail_view_event_id {
-        if let Some(event) = app.events.get(event_id) {
-            let mut all_lines = Vec::new();
+    if let Some(event_id) = &app.detail_view_event_id
+        && let Some(event) = app.events.get(event_id)
+    {
+        let mut all_lines = Vec::new();
 
-            all_lines.push(event.title.clone());
+        all_lines.push(event.title.clone());
+        all_lines.push(String::new());
+
+        if event.all_day {
+            all_lines.push(format!("📅 {}", event.start.format("%A, %B %d, %Y")));
+        } else {
+            all_lines.push(format!("📅 {} at {}", event.start.format("%A, %B %d, %Y"), event.start.format("%H:%M")));
+        }
+
+        if event.all_day {
+            let duration_days = (event.end - event.start).num_days();
+            if duration_days > 1 {
+                all_lines.push(format!("⏱  {} days", duration_days));
+            }
+        } else {
+            let duration = event.duration_minutes();
+            if duration >= 60 {
+                all_lines.push(format!("⏱  {} hour{} {} min", duration / 60, if duration / 60 > 1 { "s" } else { "" }, duration % 60));
+            } else {
+                all_lines.push(format!("⏱  {} minutes", duration));
+            }
+        }
+
+        if let Some(location) = &event.location {
             all_lines.push(String::new());
+            all_lines.push("📍 Location:".to_string());
+            all_lines.push(format!("   {}", location));
+        }
 
-            if event.all_day {
-                all_lines.push(format!("📅 {}", event.start.format("%A, %B %d, %Y")));
+        if let Some(desc) = &event.description {
+            all_lines.push(String::new());
+            all_lines.push("📝 Description:".to_string());
+            all_lines.push(String::new());
+            let clean_desc = strip_html(desc);
+            for line in clean_desc.lines() {
+                all_lines.push(line.to_string());
+            }
+        }
+
+        if !event.attendees.is_empty() {
+            all_lines.push(String::new());
+            all_lines.push("👥 Attendees:".to_string());
+            for attendee in &event.attendees {
+                all_lines.push(format!("   • {}", attendee));
+            }
+        }
+
+        if app.detail_view_cursor_line < all_lines.len() {
+            let line_text = &all_lines[app.detail_view_cursor_line];
+
+            static MARKDOWN_LINK_RE: OnceLock<Regex> = OnceLock::new();
+            static PLAIN_URL_RE: OnceLock<Regex> = OnceLock::new();
+
+            let markdown_link_pattern = MARKDOWN_LINK_RE.get_or_init(|| {
+                Regex::new(r"\[([^\]]+)\]\((https?://[^\)]+)\)")
+                    .expect("invalid markdown link regex")
+            });
+            let plain_url_pattern = PLAIN_URL_RE.get_or_init(|| {
+                Regex::new(r"(https?://[^\s\)]+)")
+                    .expect("invalid plain url regex")
+            });
+
+            let url_to_open = if let Some(cap) = markdown_link_pattern.captures(line_text) {
+                cap.get(2).map(|m| m.as_str())
+            } else if let Some(cap) = plain_url_pattern.captures(line_text) {
+                cap.get(1).map(|m| m.as_str())
             } else {
-                all_lines.push(format!("📅 {} at {}", event.start.format("%A, %B %d, %Y"), event.start.format("%H:%M")));
-            }
+                None
+            };
 
-            if event.all_day {
-                let duration_days = (event.end - event.start).num_days();
-                if duration_days > 1 {
-                    all_lines.push(format!("⏱  {} days", duration_days));
+            if let Some(url) = url_to_open {
+                tracing::info!("Opening URL: {}", url);
+                match std::process::Command::new("xdg-open").arg(url).spawn() {
+                    Ok(_) => tracing::info!("Successfully launched xdg-open"),
+                    Err(e) => tracing::error!("Failed to open URL: {}", e),
                 }
             } else {
-                let duration = event.duration_minutes();
-                if duration >= 60 {
-                    all_lines.push(format!("⏱  {} hour{} {} min", duration / 60, if duration / 60 > 1 { "s" } else { "" }, duration % 60));
-                } else {
-                    all_lines.push(format!("⏱  {} minutes", duration));
-                }
-            }
-
-            if let Some(location) = &event.location {
-                all_lines.push(String::new());
-                all_lines.push("📍 Location:".to_string());
-                all_lines.push(format!("   {}", location));
-            }
-
-            if let Some(desc) = &event.description {
-                all_lines.push(String::new());
-                all_lines.push("📝 Description:".to_string());
-                all_lines.push(String::new());
-                let clean_desc = strip_html(desc);
-                for line in clean_desc.lines() {
-                    all_lines.push(line.to_string());
-                }
-            }
-
-            if !event.attendees.is_empty() {
-                all_lines.push(String::new());
-                all_lines.push("👥 Attendees:".to_string());
-                for attendee in &event.attendees {
-                    all_lines.push(format!("   • {}", attendee));
-                }
-            }
-
-            if app.detail_view_cursor_line < all_lines.len() {
-                let line_text = &all_lines[app.detail_view_cursor_line];
-
-                static MARKDOWN_LINK_RE: OnceLock<Regex> = OnceLock::new();
-                static PLAIN_URL_RE: OnceLock<Regex> = OnceLock::new();
-
-                let markdown_link_pattern = MARKDOWN_LINK_RE.get_or_init(|| {
-                    Regex::new(r"\[([^\]]+)\]\((https?://[^\)]+)\)")
-                        .expect("invalid markdown link regex")
-                });
-                let plain_url_pattern = PLAIN_URL_RE.get_or_init(|| {
-                    Regex::new(r"(https?://[^\s\)]+)")
-                        .expect("invalid plain url regex")
-                });
-
-                let url_to_open = if let Some(cap) = markdown_link_pattern.captures(line_text) {
-                    cap.get(2).map(|m| m.as_str())
-                } else if let Some(cap) = plain_url_pattern.captures(line_text) {
-                    cap.get(1).map(|m| m.as_str())
-                } else {
-                    None
-                };
-
-                if let Some(url) = url_to_open {
-                    tracing::info!("Opening URL: {}", url);
-                    match std::process::Command::new("xdg-open").arg(url).spawn() {
-                        Ok(_) => tracing::info!("Successfully launched xdg-open"),
-                        Err(e) => tracing::error!("Failed to open URL: {}", e),
-                    }
-                } else {
-                    tracing::info!("No URL found on current line");
-                }
+                tracing::info!("No URL found on current line");
             }
         }
     }
@@ -434,15 +437,15 @@ fn handle_yank(app: &mut AppState) {
 
 fn handle_open_browser(app: &AppState) {
     tracing::info!("Opening event in browser");
-    if let Some(event_id) = &app.detail_view_event_id {
-        if let Some(event) = app.events.get(event_id) {
-            let url = event.html_link.clone()
-                .unwrap_or_else(|| format!("https://calendar.google.com/calendar/u/0/r/eventedit/{}", event.id));
-            tracing::info!("Opening Google Calendar URL: {}", url);
-            match std::process::Command::new("xdg-open").arg(&url).spawn() {
-                Ok(_) => tracing::info!("Successfully launched browser"),
-                Err(e) => tracing::error!("Failed to open browser: {}", e),
-            }
+    if let Some(event_id) = &app.detail_view_event_id
+        && let Some(event) = app.events.get(event_id)
+    {
+        let url = event.html_link.clone()
+            .unwrap_or_else(|| format!("https://calendar.google.com/calendar/u/0/r/eventedit/{}", event.id));
+        tracing::info!("Opening Google Calendar URL: {}", url);
+        match std::process::Command::new("xdg-open").arg(&url).spawn() {
+            Ok(_) => tracing::info!("Successfully launched browser"),
+            Err(e) => tracing::error!("Failed to open browser: {}", e),
         }
     }
 }

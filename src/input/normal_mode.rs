@@ -168,10 +168,10 @@ fn move_to_end_of_month(state: &mut AppState) {
         NaiveDate::from_ymd_opt(year, month + 1, 1)
     };
 
-    if let Some(first) = next_month_first {
-        if let Some(last_day) = first.checked_sub_days(Days::new(1)) {
-            state.selected_date = last_day;
-        }
+    if let Some(first) = next_month_first
+        && let Some(last_day) = first.checked_sub_days(Days::new(1))
+    {
+        state.selected_date = last_day;
     }
 }
 

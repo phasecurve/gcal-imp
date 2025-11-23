@@ -18,26 +18,24 @@ async fn main() -> Result<(), io::Error> {
         }
     };
 
-    if let CliMode::AgendaDate(_) = cli_mode {
-        if let Err(e) = check_or_setup_auth().await {
-            eprintln!("Authentication error: {}", e);
-            tracing::error!("Authentication failed: {}", e);
-            return Ok(());
+    match cli_mode {
+        CliMode::AgendaDate(date) => {
+            if let Err(e) = check_or_setup_auth().await {
+                eprintln!("Authentication error: {}", e);
+                tracing::error!("Authentication failed: {}", e);
+                return Ok(());
+            }
+            run_agenda_mode(date).await
         }
-        let date = match cli_mode {
-            CliMode::AgendaDate(d) => d,
-            _ => unreachable!(),
-        };
-        return run_agenda_mode(date).await;
+        CliMode::Default { sample } => {
+            if let Err(e) = check_or_setup_auth().await {
+                eprintln!("Authentication error: {}", e);
+                tracing::error!("Authentication failed: {}", e);
+                return Ok(());
+            }
+            run_tui(sample).await
+        }
     }
-
-    if let Err(e) = check_or_setup_auth().await {
-        eprintln!("Authentication error: {}", e);
-        tracing::error!("Authentication failed: {}", e);
-        return Ok(());
-    }
-
-    run_tui().await
 }
 
 fn setup_logging() {
