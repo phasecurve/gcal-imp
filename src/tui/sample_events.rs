@@ -1,7 +1,7 @@
 use chrono::{Local, TimeZone, Utc};
 use gcal_imp::{
     app::AppState,
-    calendar::{Event as CalendarEvent, EventStatus},
+    calendar::{Event as CalendarEvent, EventStatus, DEFAULT_CALENDAR_ID},
 };
 
 pub fn add_sample_events(app: &mut AppState) {
@@ -34,7 +34,7 @@ pub fn add_sample_events(app: &mut AppState) {
 
         let event = CalendarEvent {
             id: format!("sample_{}", i),
-            calendar_id: "primary".to_string(),
+            calendar_id: DEFAULT_CALENDAR_ID.to_string(),
             title: title.to_string(),
             description: Some("Sample event for testing".to_string()),
             location: location.map(String::from),

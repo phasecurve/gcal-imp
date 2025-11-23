@@ -99,14 +99,9 @@ pub fn render(f: &mut Frame, app: &AppState) {
         return;
     };
 
-    tracing::info!("render_event_detail: event_id={}", event_id);
-
     let Some(event) = app.events.get(event_id) else {
-        tracing::error!("render_event_detail: event not found for id={}", event_id);
         return;
     };
-
-    tracing::info!("render_event_detail: title={}, has_description={}", event.title, event.description.is_some());
 
     let area = f.size();
     let panel_width = (area.width as f32 * 0.7) as u16;
@@ -161,7 +156,6 @@ pub fn render(f: &mut Frame, app: &AppState) {
     }
 
     if let Some(description) = &event.description {
-        tracing::info!("render_event_detail: processing description, length={}", description.len());
         lines.push(Line::from(""));
         lines.push(Line::from(vec![
             Span::styled("📝 Description:", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD))
@@ -169,13 +163,9 @@ pub fn render(f: &mut Frame, app: &AppState) {
         lines.push(Line::from(""));
 
         let clean_description = strip_html(description);
-        tracing::info!("render_event_detail: cleaned description, length={}", clean_description.len());
-        tracing::info!("render_event_detail: about to iterate through description lines");
 
-        for (line_num, line) in clean_description.lines().enumerate() {
-            tracing::info!("render_event_detail: START processing line {}", line_num);
+        for line in clean_description.lines() {
             let line_owned = line.to_string();
-            tracing::info!("render_event_detail: line {} length={}, content_preview={}", line_num, line_owned.len(), &line_owned.chars().take(50).collect::<String>());
             if line_owned.trim().is_empty() {
                 lines.push(Line::from(""));
             } else {
@@ -184,54 +174,32 @@ pub fn render(f: &mut Frame, app: &AppState) {
                 let mut spans = Vec::new();
                 let mut last_end = 0;
 
-                tracing::info!("render_event_detail: searching for markdown links in line {}", line_num);
                 let markdown_captures: Vec<_> = md_pattern.captures_iter(&line_owned).collect();
-                tracing::info!("render_event_detail: found {} markdown link matches", markdown_captures.len());
                 for cap in markdown_captures {
                     let Some(m) = cap.get(0) else { continue };
-                    tracing::info!("render_event_detail: markdown link match at {}..{}", m.start(), m.end());
-                    if m.start() > last_end {
-                        tracing::info!("render_event_detail: adding text span from {}..{}", last_end, m.start());
-                        if m.start() <= line_owned.len() && last_end <= m.start() {
-                            spans.push(Span::raw(line_owned[last_end..m.start()].to_string()));
-                        } else {
-                            tracing::error!("render_event_detail: invalid slice range {}..{} for line length {}", last_end, m.start(), line_owned.len());
-                        }
+                    if m.start() > last_end && m.start() <= line_owned.len() {
+                        spans.push(Span::raw(line_owned[last_end..m.start()].to_string()));
                     }
                     spans.push(Span::styled(m.as_str().to_string(), Style::default().fg(Color::Blue).add_modifier(Modifier::UNDERLINED)));
                     last_end = m.end();
                 }
 
-                tracing::info!("render_event_detail: searching for plain URLs from offset {}, line length={}", last_end, line_owned.len());
                 if last_end > line_owned.len() {
-                    tracing::error!("render_event_detail: last_end {} exceeds line length {}", last_end, line_owned.len());
                     last_end = line_owned.len();
                 }
-                tracing::info!("render_event_detail: about to iterate plain URL captures");
                 let plain_captures: Vec<_> = url_pattern.captures_iter(&line_owned[last_end..]).collect();
-                tracing::info!("render_event_detail: found {} plain URL matches", plain_captures.len());
-                for (idx, cap) in plain_captures.iter().enumerate() {
-                    tracing::info!("render_event_detail: processing plain URL match {}", idx);
+                for cap in plain_captures.iter() {
                     let Some(m) = cap.get(0) else { continue };
                     let abs_start = last_end + m.start();
                     let abs_end = last_end + m.end();
-                    tracing::info!("render_event_detail: plain URL match at {}..{} (abs {}..{})", m.start(), m.end(), abs_start, abs_end);
-                    if abs_start > last_end {
-                        tracing::info!("render_event_detail: adding text before URL from {}..{}", last_end, abs_start);
-                        if abs_start <= line_owned.len() && last_end <= abs_start {
-                            spans.push(Span::raw(line_owned[last_end..abs_start].to_string()));
-                        } else {
-                            tracing::error!("render_event_detail: invalid slice {}..{} for line length {}", last_end, abs_start, line_owned.len());
-                        }
+                    if abs_start > last_end && abs_start <= line_owned.len() {
+                        spans.push(Span::raw(line_owned[last_end..abs_start].to_string()));
                     }
-                    tracing::info!("render_event_detail: adding URL span");
                     spans.push(Span::styled(m.as_str().to_string(), Style::default().fg(Color::Blue).add_modifier(Modifier::UNDERLINED)));
                     last_end = abs_end;
-                    tracing::info!("render_event_detail: completed processing URL match {}", idx);
                 }
 
                 if last_end < line_owned.len() {
-                    tracing::debug!("render_event_detail: adding remaining text from {}..{}", last_end, line_owned.len());
                     spans.push(Span::raw(line_owned[last_end..].to_string()));
                 }
 
@@ -283,12 +251,8 @@ pub fn render(f: &mut Frame, app: &AppState) {
     let visible_lines_count = panel_height.saturating_sub(2) as usize;
     let total_lines = lines.len();
 
-    tracing::info!("render_event_detail: panel_height={}, visible_lines_count={}, total_lines={}", panel_height, visible_lines_count, total_lines);
-
     let cursor_line = app.detail_view_cursor_line.min(total_lines.saturating_sub(1));
     let cursor_col = app.detail_view_cursor_col;
-
-    tracing::info!("render_event_detail: cursor_line={}, cursor_col={}", cursor_line, cursor_col);
 
     let scroll_start = if visible_lines_count == 0 {
         0
@@ -299,8 +263,6 @@ pub fn render(f: &mut Frame, app: &AppState) {
     } else {
         app.detail_view_scroll
     }.min(total_lines.saturating_sub(visible_lines_count));
-
-    tracing::info!("render_event_detail: scroll_start={}", scroll_start);
 
     let (visual_start, visual_end) = if let Some((start_line, start_col)) = app.detail_view_visual_start {
         let end_line = cursor_line;

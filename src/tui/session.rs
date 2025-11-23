@@ -17,7 +17,7 @@ use gcal_imp::{
     sync::sync_engine::SyncEngine,
     ui::theme::Theme,
     input::{normal_mode, command_mode, insert_mode, visual_mode},
-    calendar::{Event as CalendarEvent, EventStatus},
+    calendar::{Event as CalendarEvent, EventStatus, DEFAULT_CALENDAR_ID},
 };
 use crate::tui::{
     presentation::ui,
@@ -565,7 +565,7 @@ async fn handle_insert_mode<B: ratatui::backend::Backend>(
                     let existing_link = app.events.get(&event_id).and_then(|e| e.html_link.clone());
                     let event = CalendarEvent {
                         id: event_id.clone(),
-                        calendar_id: "primary".to_string(),
+                        calendar_id: DEFAULT_CALENDAR_ID.to_string(),
                         title: form.title.clone(),
                         description: if form.description.is_empty() { None } else { Some(form.description.clone()) },
                         location: if form.location.is_empty() { None } else { Some(form.location.clone()) },
@@ -597,7 +597,7 @@ async fn handle_insert_mode<B: ratatui::backend::Backend>(
                 } else {
                     let event = CalendarEvent {
                         id: Uuid::new_v4().to_string(),
-                        calendar_id: "primary".to_string(),
+                        calendar_id: DEFAULT_CALENDAR_ID.to_string(),
                         title: form.title.clone(),
                         description: if form.description.is_empty() { None } else { Some(form.description.clone()) },
                         location: if form.location.is_empty() { None } else { Some(form.location.clone()) },
