@@ -30,6 +30,31 @@ use crate::tui::{
     },
 };
 
+fn build_event_from_form(
+    id: String,
+    form: &EventForm,
+    start: chrono::DateTime<chrono::Utc>,
+    end: chrono::DateTime<chrono::Utc>,
+    all_day: bool,
+    html_link: Option<String>,
+) -> CalendarEvent {
+    CalendarEvent {
+        id,
+        calendar_id: DEFAULT_CALENDAR_ID.to_string(),
+        title: form.title.clone(),
+        description: if form.description.is_empty() { None } else { Some(form.description.clone()) },
+        location: if form.location.is_empty() { None } else { Some(form.location.clone()) },
+        start,
+        end,
+        all_day,
+        attendees: vec![],
+        reminders: vec![],
+        status: EventStatus::Confirmed,
+        last_modified: chrono::Utc::now(),
+        html_link,
+    }
+}
+
 pub async fn run_tui(sample: bool) -> Result<(), io::Error> {
     let config = Config::load_or_create()
         .map_err(|e| io::Error::other(e.to_string()))?;
@@ -561,63 +586,39 @@ async fn handle_insert_mode<B: ratatui::backend::Backend>(
                     (start, end, false)
                 };
 
-                if let Some(event_id) = form.event_id {
-                    let existing_link = app.events.get(&event_id).and_then(|e| e.html_link.clone());
-                    let event = CalendarEvent {
-                        id: event_id.clone(),
-                        calendar_id: DEFAULT_CALENDAR_ID.to_string(),
-                        title: form.title.clone(),
-                        description: if form.description.is_empty() { None } else { Some(form.description.clone()) },
-                        location: if form.location.is_empty() { None } else { Some(form.location.clone()) },
-                        start: start_datetime,
-                        end: end_datetime,
-                        all_day,
-                        attendees: vec![],
-                        reminders: vec![],
-                        status: EventStatus::Confirmed,
-                        last_modified: chrono::Utc::now(),
-                        html_link: existing_link,
-                    };
+                let is_update = form.event_id.is_some();
+                let (event_id, html_link) = if let Some(id) = form.event_id.clone() {
+                    let link = app.events.get(&id).and_then(|e| e.html_link.clone());
+                    (id, link)
+                } else {
+                    (Uuid::new_v4().to_string(), None)
+                };
 
-                    tracing::info!("Updating event: {} (id: {})", event.title, event.id);
-                    app.sync_status = SyncStatus::Syncing;
-                    terminal.draw(|f| ui(f, app))?;
+                let event = build_event_from_form(
+                    event_id,
+                    &form,
+                    start_datetime,
+                    end_datetime,
+                    all_day,
+                    html_link,
+                );
 
+                app.sync_status = SyncStatus::Syncing;
+                terminal.draw(|f| ui(f, app))?;
+
+                if is_update {
                     match sync_engine.update_event(&event).await {
                         Ok(()) => {
-                            tracing::info!("Event updated successfully");
                             app.add_event(event);
                             app.sync_status = SyncStatus::Synced;
                         }
                         Err(e) => {
-                            tracing::error!("Failed to update event: {}", e);
-                            app.sync_status = SyncStatus::Error(format!("Failed to update event: {}", e));
+                            app.sync_status = SyncStatus::Error(format!("Failed to update: {}", e));
                         }
                     }
                 } else {
-                    let event = CalendarEvent {
-                        id: Uuid::new_v4().to_string(),
-                        calendar_id: DEFAULT_CALENDAR_ID.to_string(),
-                        title: form.title.clone(),
-                        description: if form.description.is_empty() { None } else { Some(form.description.clone()) },
-                        location: if form.location.is_empty() { None } else { Some(form.location.clone()) },
-                        start: start_datetime,
-                        end: end_datetime,
-                        all_day,
-                        attendees: vec![],
-                        reminders: vec![],
-                        status: EventStatus::Confirmed,
-                        last_modified: chrono::Utc::now(),
-                        html_link: None,
-                    };
-
-                    tracing::info!("Creating new event: {}", event.title);
-                    app.sync_status = SyncStatus::Syncing;
-                    terminal.draw(|f| ui(f, app))?;
-
                     match sync_engine.create_event(&event).await {
                         Ok(created_info) => {
-                            tracing::info!("Event created successfully with id: {}", created_info.id);
                             let mut created_event = event;
                             created_event.id = created_info.id;
                             created_event.html_link = created_info.html_link;
@@ -625,8 +626,7 @@ async fn handle_insert_mode<B: ratatui::backend::Backend>(
                             app.sync_status = SyncStatus::Synced;
                         }
                         Err(e) => {
-                            tracing::error!("Failed to create event: {}", e);
-                            app.sync_status = SyncStatus::Error(format!("Failed to create event: {}", e));
+                            app.sync_status = SyncStatus::Error(format!("Failed to create: {}", e));
                         }
                     }
                 }

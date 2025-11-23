@@ -27,6 +27,25 @@ fn plain_url_pattern() -> &'static Regex {
     })
 }
 
+fn is_char_in_visual_selection(
+    line_idx: usize,
+    char_idx: usize,
+    visual_start: Option<(usize, usize)>,
+    visual_end: Option<(usize, usize)>,
+) -> bool {
+    let (Some((vs_line, vs_col)), Some((ve_line, ve_col))) = (visual_start, visual_end) else {
+        return false;
+    };
+
+    match line_idx {
+        l if l > vs_line && l < ve_line => true,
+        l if l == vs_line && l == ve_line => char_idx >= vs_col && char_idx <= ve_col,
+        l if l == vs_line => char_idx >= vs_col,
+        l if l == ve_line => char_idx <= ve_col,
+        _ => false,
+    }
+}
+
 pub fn refresh_detail_view_lines(app: &mut AppState) {
     if let Some(event_id) = &app.detail_view_event_id {
         if let Some(event) = app.events.get(event_id) {
@@ -38,16 +57,14 @@ pub fn refresh_detail_view_lines(app: &mut AppState) {
 }
 
 pub fn build_event_detail_lines(event: &CalendarEvent) -> Vec<String> {
-    let mut lines = Vec::new();
+    let mut lines = vec![event.title.clone(), String::new()];
 
-    lines.push(event.title.clone());
-    lines.push(String::new());
-
-    if event.all_day {
-        lines.push(format!("📅 {}", event.start.format("%A, %B %d, %Y")));
+    let date_line = if event.all_day {
+        format!("📅 {}", event.start.format("%A, %B %d, %Y"))
     } else {
-        lines.push(format!("📅 {} at {}", event.start.format("%A, %B %d, %Y"), event.start.format("%H:%M")));
-    }
+        format!("📅 {} at {}", event.start.format("%A, %B %d, %Y"), event.start.format("%H:%M"))
+    };
+    lines.push(date_line);
 
     if event.all_day {
         let duration_days = (event.end - event.start).num_days();
@@ -56,40 +73,33 @@ pub fn build_event_detail_lines(event: &CalendarEvent) -> Vec<String> {
         }
     } else {
         let duration = event.duration_minutes();
-        if duration >= 60 {
-            lines.push(format!("⏱  {} hour{} {} min", duration / 60, if duration / 60 > 1 { "s" } else { "" }, duration % 60));
+        let duration_str = if duration >= 60 {
+            format!("⏱  {} hour{} {} min", duration / 60, if duration / 60 > 1 { "s" } else { "" }, duration % 60)
         } else {
-            lines.push(format!("⏱  {} minutes", duration));
-        }
+            format!("⏱  {} minutes", duration)
+        };
+        lines.push(duration_str);
     }
 
     if let Some(location) = &event.location {
-        lines.push(String::new());
-        lines.push("📍 Location:".to_string());
-        lines.push(format!("   {}", location));
+        lines.extend([String::new(), "📍 Location:".to_string(), format!("   {}", location)]);
     }
 
     if let Some(description) = &event.description {
-        lines.push(String::new());
-        lines.push("📝 Description:".to_string());
-        lines.push(String::new());
-        let clean_description = strip_html(description);
-        for line in clean_description.lines() {
-            lines.push(line.to_string());
-        }
+        lines.extend([String::new(), "📝 Description:".to_string(), String::new()]);
+        lines.extend(strip_html(description).lines().map(String::from));
     }
 
     if !event.attendees.is_empty() {
-        lines.push(String::new());
-        lines.push("👥 Attendees:".to_string());
-        for attendee in &event.attendees {
-            lines.push(format!("   • {}", attendee));
-        }
+        lines.extend([String::new(), "👥 Attendees:".to_string()]);
+        lines.extend(event.attendees.iter().map(|a| format!("   • {}", a)));
     }
 
-    lines.push(String::new());
-    lines.push("hjkl = Move | wbe = Word | 0^$ = Line | gG = Top/Bottom".to_string());
-    lines.push("o = Open URL | y = Yank line | B = Browser | E = Edit | q/Esc = Close".to_string());
+    lines.extend([
+        String::new(),
+        "hjkl = Move | wbe = Word | 0^$ = Line | gG = Top/Bottom".to_string(),
+        "o = Open URL | y = Yank line | B = Browser | E = Edit | q/Esc = Close".to_string(),
+    ]);
 
     lines
 }
@@ -291,21 +301,7 @@ pub fn render(f: &mut Frame, app: &AppState) {
                 for (char_idx, ch) in chars.iter().enumerate() {
                     let global_char_idx = char_count + char_idx;
                     let is_cursor = line_idx == cursor_line && global_char_idx == cursor_col;
-                    let is_in_visual = if let (Some((vs_line, vs_col)), Some((ve_line, ve_col))) = (visual_start, visual_end) {
-                        if line_idx > vs_line && line_idx < ve_line {
-                            true
-                        } else if line_idx == vs_line && line_idx == ve_line {
-                            global_char_idx >= vs_col && global_char_idx <= ve_col
-                        } else if line_idx == vs_line {
-                            global_char_idx >= vs_col
-                        } else if line_idx == ve_line {
-                            global_char_idx <= ve_col
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    };
+                    let is_in_visual = is_char_in_visual_selection(line_idx, global_char_idx, visual_start, visual_end);
 
                     let style = if is_cursor {
                         span.style.bg(Color::White).fg(Color::Black)

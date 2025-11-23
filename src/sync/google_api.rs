@@ -20,6 +20,20 @@ pub enum ApiError {
     ParseError(String),
 }
 
+async fn check_response_status(response: reqwest::Response, context: &str) -> Result<reqwest::Response, ApiError> {
+    let status = response.status();
+    match status.as_u16() {
+        401 => Err(ApiError::AuthenticationFailed),
+        404 => Err(ApiError::NotFound(context.to_string())),
+        429 => Err(ApiError::RateLimited),
+        _ if !status.is_success() => {
+            let body = response.text().await.unwrap_or_default();
+            Err(ApiError::RequestError(format!("Status {}: {}", status, body)))
+        }
+        _ => Ok(response),
+    }
+}
+
 pub struct DateRange {
     pub start: NaiveDate,
     pub end: NaiveDate,
@@ -219,30 +233,7 @@ impl CalendarApi for GoogleCalendarClient {
             .send()
             .await?;
 
-        let status = response.status();
-        tracing::info!("Fetch events response status: {}", status);
-
-        if status == 401 {
-            tracing::error!("Authentication failed when fetching events");
-            return Err(ApiError::AuthenticationFailed);
-        }
-
-        if status == 404 {
-            tracing::error!("Calendar not found: {}", calendar_id);
-            return Err(ApiError::NotFound(calendar_id.to_string()));
-        }
-
-        if status == 429 {
-            tracing::warn!("Rate limit exceeded");
-            return Err(ApiError::RateLimited);
-        }
-
-        if !status.is_success() {
-            let body = response.text().await?;
-            tracing::error!("Failed to fetch events. Status: {}, Body: {}", status, body);
-            return Err(ApiError::RequestError(format!("Status {}: {}", status, body)));
-        }
-
+        let response = check_response_status(response, calendar_id).await?;
         let event_list: EventListResponse = response.json().await?;
 
         let events: Vec<Event> = event_list.items
@@ -273,20 +264,7 @@ impl CalendarApi for GoogleCalendarClient {
             .send()
             .await?;
 
-        let status = response.status();
-        tracing::info!("Create event response status: {}", status);
-
-        if status == 401 {
-            tracing::error!("Authentication failed when creating event");
-            return Err(ApiError::AuthenticationFailed);
-        }
-
-        if !status.is_success() {
-            let body = response.text().await?;
-            tracing::error!("Failed to create event. Status: {}, Body: {}", status, body);
-            return Err(ApiError::RequestError(format!("Status {}: {}", status, body)));
-        }
-
+        let response = check_response_status(response, &event.title).await?;
         let created_event: GoogleEvent = response.json().await?;
         let id = created_event.id.unwrap_or_default();
         tracing::info!("Event created successfully with ID: {:?}", id);
@@ -316,26 +294,7 @@ impl CalendarApi for GoogleCalendarClient {
             .send()
             .await?;
 
-        let status = response.status();
-        tracing::info!("Update event response status: {}", status);
-
-        if status == 401 {
-            tracing::error!("Authentication failed when updating event {}", event_id);
-            return Err(ApiError::AuthenticationFailed);
-        }
-
-        if status == 404 {
-            tracing::error!("Event not found: {}", event_id);
-            return Err(ApiError::NotFound(event_id.to_string()));
-        }
-
-        if !status.is_success() {
-            let body = response.text().await?;
-            tracing::error!("Failed to update event {}. Status: {}, Body: {}", event_id, status, body);
-            return Err(ApiError::RequestError(format!("Status {}: {}", status, body)));
-        }
-
-        tracing::info!("Event {} updated successfully", event_id);
+        check_response_status(response, event_id).await?;
         Ok(())
     }
 
@@ -352,20 +311,7 @@ impl CalendarApi for GoogleCalendarClient {
             .send()
             .await?;
 
-        if response.status() == 401 {
-            return Err(ApiError::AuthenticationFailed);
-        }
-
-        if response.status() == 404 {
-            return Err(ApiError::NotFound(event_id.to_string()));
-        }
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await?;
-            return Err(ApiError::RequestError(format!("Status {}: {}", status, body)));
-        }
-
+        check_response_status(response, event_id).await?;
         Ok(())
     }
 }

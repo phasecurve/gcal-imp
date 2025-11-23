@@ -36,8 +36,8 @@ pub fn handle_key(key: KeyCode, state: &mut AppState) {
         KeyCode::Char('?') => show_help(state),
         KeyCode::Char('g') => handle_gg_motion(state),
         KeyCode::Char('G') => move_to_end_of_month(state),
-        KeyCode::Char('{') => move_previous_month(state),
-        KeyCode::Char('}') => move_next_month(state),
+        KeyCode::Char('{') => change_month(state, -1),
+        KeyCode::Char('}') => change_month(state, 1),
         _ => {}
     }
 }
@@ -175,45 +175,17 @@ fn move_to_end_of_month(state: &mut AppState) {
     }
 }
 
-fn move_previous_month(state: &mut AppState) {
+fn change_month(state: &mut AppState, offset: i32) {
     let year = state.selected_date.year();
-    let month = state.selected_date.month();
+    let month = state.selected_date.month() as i32;
     let day = state.selected_date.day();
 
-    let (new_year, new_month) = if month == 1 {
-        (year - 1, 12)
-    } else {
-        (year, month - 1)
-    };
+    let total_months = year * 12 + month - 1 + offset;
+    let new_year = total_months.div_euclid(12);
+    let new_month = (total_months.rem_euclid(12) + 1) as u32;
 
     let next_month_first = NaiveDate::from_ymd_opt(new_year, new_month + 1, 1)
         .or_else(|| NaiveDate::from_ymd_opt(new_year + 1, 1, 1));
-
-    let Some(first) = next_month_first else { return };
-    let Some(last) = first.checked_sub_days(Days::new(1)) else { return };
-
-    let new_day = day.min(last.day());
-    if let Some(new_date) = NaiveDate::from_ymd_opt(new_year, new_month, new_day) {
-        state.selected_date = new_date;
-    }
-}
-
-fn move_next_month(state: &mut AppState) {
-    let year = state.selected_date.year();
-    let month = state.selected_date.month();
-    let day = state.selected_date.day();
-
-    let (new_year, new_month) = if month == 12 {
-        (year + 1, 1)
-    } else {
-        (year, month + 1)
-    };
-
-    let next_month_first = if new_month == 12 {
-        NaiveDate::from_ymd_opt(new_year + 1, 1, 1)
-    } else {
-        NaiveDate::from_ymd_opt(new_year, new_month + 1, 1)
-    };
 
     let Some(first) = next_month_first else { return };
     let Some(last) = first.checked_sub_days(Days::new(1)) else { return };
