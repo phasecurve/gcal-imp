@@ -13,10 +13,13 @@ use gcal_imp::{
 pub fn render(f: &mut Frame, app: &AppState, area: ratatui::layout::Rect) {
     let layout = week_view::calculate_layout(app);
 
-    let week_range = format!("{} - {}",
-        layout.week_start.format("%b %d"),
-        layout.days.last().unwrap().date.format("%b %d, %Y")
-    );
+    let week_range = if let Some(last_day) = layout.days.last() {
+        format!("{} - {}",
+            layout.week_start.format("%b %d"),
+            last_day.date.format("%b %d, %Y"))
+    } else {
+        layout.week_start.format("%b %d, %Y").to_string()
+    };
 
     let mut lines = vec![
         Line::from(vec![

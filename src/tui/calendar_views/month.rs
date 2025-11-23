@@ -14,9 +14,8 @@ pub fn render(f: &mut Frame, app: &AppState, area: ratatui::layout::Rect) {
     let layout = month_view::calculate_layout(app);
 
     let month_name = NaiveDate::from_ymd_opt(layout.year, layout.month, 1)
-        .unwrap()
-        .format("%B %Y")
-        .to_string();
+        .map(|d| d.format("%B %Y").to_string())
+        .unwrap_or_else(|| format!("{}-{:02}", layout.year, layout.month));
 
     let mut lines = vec![
         Line::from(vec![
