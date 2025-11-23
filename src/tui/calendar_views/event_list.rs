@@ -23,20 +23,16 @@ pub fn render(f: &mut Frame, app: &AppState, area: ratatui::layout::Rect) {
             Span::styled("No events", Style::default().fg(Color::DarkGray)),
         ]));
     } else {
+        let selected_base = Style::default().bg(app.theme.selected_bg).add_modifier(Modifier::BOLD);
+
         for (idx, event) in events.iter().enumerate() {
             let time_str = event.start.format("%H:%M").to_string();
             let is_selected = idx == app.selected_event_index;
 
-            let time_style = if is_selected {
-                Style::default().bg(app.theme.selected_bg).fg(Color::Black).add_modifier(Modifier::BOLD)
+            let (time_style, title_style) = if is_selected {
+                (selected_base.fg(Color::Black), selected_base.fg(Color::Black))
             } else {
-                Style::default().fg(Color::Green)
-            };
-
-            let title_style = if is_selected {
-                Style::default().bg(app.theme.selected_bg).fg(Color::Black).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(Color::White)
+                (Style::default().fg(Color::Green), Style::default().fg(Color::White))
             };
 
             let cursor = if is_selected { ">" } else { " " };

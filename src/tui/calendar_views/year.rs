@@ -9,6 +9,9 @@ use gcal_imp::{
     ui::year_view,
 };
 
+const MONTH_NAMES: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEKDAY_HEADERS: [&str; 7] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
 pub fn render(f: &mut Frame, app: &AppState, area: ratatui::layout::Rect) {
     let layout = year_view::calculate_layout(app);
 
@@ -25,12 +28,7 @@ pub fn render(f: &mut Frame, app: &AppState, area: ratatui::layout::Rect) {
             let month_idx = row * 3 + col;
             if month_idx < layout.months.len() {
                 let month = &layout.months[month_idx];
-                let month_name = match month.month {
-                    1 => "Jan", 2 => "Feb", 3 => "Mar", 4 => "Apr",
-                    5 => "May", 6 => "Jun", 7 => "Jul", 8 => "Aug",
-                    9 => "Sep", 10 => "Oct", 11 => "Nov", 12 => "Dec",
-                    _ => "???",
-                };
+                let month_name = MONTH_NAMES.get(month.month as usize - 1).unwrap_or(&"???");
 
                 let style = if month.is_current_month {
                     Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
@@ -47,19 +45,18 @@ pub fn render(f: &mut Frame, app: &AppState, area: ratatui::layout::Rect) {
         lines.push(Line::from(month_headers));
 
         let mut dow_headers = Vec::new();
+        let header_style = Style::default().fg(Color::DarkGray);
         for col in 0..3 {
             let month_idx = row * 3 + col;
             if month_idx < layout.months.len() {
-                let mut header_spans = Vec::new();
-                for (i, dow) in ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].iter().enumerate() {
+                for (i, dow) in WEEKDAY_HEADERS.iter().enumerate() {
                     if i > 0 {
-                        header_spans.push(Span::styled(" ", Style::default().fg(Color::DarkGray)));
+                        dow_headers.push(Span::styled(" ", header_style));
                     }
-                    header_spans.push(Span::styled(format!("{:2}", dow), Style::default().fg(Color::DarkGray)));
+                    dow_headers.push(Span::styled(format!("{:2}", dow), header_style));
                 }
-                dow_headers.extend(header_spans);
                 if col < 2 {
-                    dow_headers.push(Span::styled(" │ ", Style::default().fg(Color::DarkGray)));
+                    dow_headers.push(Span::styled(" │ ", header_style));
                 }
             }
         }

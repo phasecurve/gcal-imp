@@ -10,6 +10,8 @@ use gcal_imp::{
     ui::month_view,
 };
 
+const WEEKDAY_HEADERS: [&str; 7] = [" Mon ", " Tue ", " Wed ", " Thu ", " Fri ", " Sat ", " Sun "];
+
 pub fn render(f: &mut Frame, app: &AppState, area: ratatui::layout::Rect) {
     let layout = month_view::calculate_layout(app);
 
@@ -17,20 +19,17 @@ pub fn render(f: &mut Frame, app: &AppState, area: ratatui::layout::Rect) {
         .map(|d| d.format("%B %Y").to_string())
         .unwrap_or_else(|| format!("{}-{:02}", layout.year, layout.month));
 
+    let header_style = Style::default().fg(app.theme.weekday_header);
+    let weekday_spans: Vec<Span> = WEEKDAY_HEADERS.iter()
+        .map(|&day| Span::styled(day, header_style))
+        .collect();
+
     let mut lines = vec![
         Line::from(vec![
             Span::styled(month_name, Style::default().fg(app.theme.title).add_modifier(Modifier::BOLD)),
         ]),
         Line::from(""),
-        Line::from(vec![
-            Span::styled(" Mon ", Style::default().fg(app.theme.weekday_header)),
-            Span::styled(" Tue ", Style::default().fg(app.theme.weekday_header)),
-            Span::styled(" Wed ", Style::default().fg(app.theme.weekday_header)),
-            Span::styled(" Thu ", Style::default().fg(app.theme.weekday_header)),
-            Span::styled(" Fri ", Style::default().fg(app.theme.weekday_header)),
-            Span::styled(" Sat ", Style::default().fg(app.theme.weekday_header)),
-            Span::styled(" Sun ", Style::default().fg(app.theme.weekday_header)),
-        ]),
+        Line::from(weekday_spans),
     ];
 
     for week in &layout.weeks {
