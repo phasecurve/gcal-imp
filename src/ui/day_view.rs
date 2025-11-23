@@ -69,7 +69,7 @@ fn build_hour_blocks(events: &[&Event]) -> Vec<HourBlock> {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use crate::calendar::{Event, EventStatus};
+    use crate::calendar::{Event, EventStatus, DEFAULT_CALENDAR_ID};
 
     fn date(year: i32, month: u32, day: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(year, month, day).unwrap()
@@ -89,7 +89,7 @@ mod tests {
             .unwrap();
         Event {
             id: id.to_string(),
-            calendar_id: "primary".to_string(),
+            calendar_id: DEFAULT_CALENDAR_ID.to_string(),
             title: title.to_string(),
             description: None,
             location: None,

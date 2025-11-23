@@ -307,11 +307,8 @@ impl AppState {
     }
 
     pub fn is_date_in_visual_selection(&self, date: NaiveDate) -> bool {
-        if let Some((start, end)) = self.get_visual_selection_range() {
-            date >= start && date <= end
-        } else {
-            false
-        }
+        self.get_visual_selection_range()
+            .map_or(false, |(start, end)| date >= start && date <= end)
     }
 }
 
@@ -324,13 +321,14 @@ impl Default for AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::calendar::DEFAULT_CALENDAR_ID;
     use chrono::{TimeZone, Utc};
 
     fn create_event_at(id: &str, date: NaiveDate, hour: u32) -> Event {
         let start = Utc.from_local_datetime(&date.and_hms_opt(hour, 0, 0).unwrap()).unwrap();
         Event {
             id: id.to_string(),
-            calendar_id: "primary".to_string(),
+            calendar_id: DEFAULT_CALENDAR_ID.to_string(),
             title: format!("Event {}", id),
             description: None,
             location: None,
@@ -378,7 +376,7 @@ mod tests {
 
         let event = Event {
             id: "event1".to_string(),
-            calendar_id: "primary".to_string(),
+            calendar_id: DEFAULT_CALENDAR_ID.to_string(),
             title: "Meeting".to_string(),
             description: None,
             location: None,

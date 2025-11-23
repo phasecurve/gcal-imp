@@ -130,7 +130,7 @@ pub fn calculate_layout(state: &AppState) -> MonthLayout {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use crate::calendar::{Event, EventStatus};
+    use crate::calendar::{Event, EventStatus, DEFAULT_CALENDAR_ID};
 
     fn date(year: i32, month: u32, day: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(year, month, day).unwrap()
@@ -140,7 +140,7 @@ mod tests {
         let start = event_date.and_hms_opt(10, 0, 0).unwrap().and_utc();
         Event {
             id: id.to_string(),
-            calendar_id: "primary".to_string(),
+            calendar_id: DEFAULT_CALENDAR_ID.to_string(),
             title: "Event".to_string(),
             description: None,
             location: None,
