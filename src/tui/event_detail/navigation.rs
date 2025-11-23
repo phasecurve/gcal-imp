@@ -123,13 +123,7 @@ pub fn last_char_index(text: &str) -> usize {
 }
 
 pub fn find_first_non_whitespace(text: &str) -> usize {
-    let chars: Vec<char> = text.chars().collect();
-    for (i, ch) in chars.iter().enumerate() {
-        if !ch.is_whitespace() {
-            return i;
-        }
-    }
-    0
+    text.chars().position(|c| !c.is_whitespace()).unwrap_or(0)
 }
 
 fn is_word_char(ch: char) -> bool {
@@ -163,11 +157,7 @@ fn find_next_word_start(text: &str, current_col: usize) -> Option<usize> {
         pos += 1;
     }
 
-    if pos < len {
-        Some(pos)
-    } else {
-        None
-    }
+    (pos < len).then_some(pos)
 }
 
 fn find_word_end(text: &str, current_col: usize) -> Option<usize> {
