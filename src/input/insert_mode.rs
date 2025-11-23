@@ -1,5 +1,13 @@
 use crossterm::event::KeyCode;
-use crate::app::{AppState, FormField};
+use crate::app::{AppState, EventForm, FormField};
+
+fn parse_current_field(form: &mut EventForm) {
+    match form.active_field {
+        FormField::StartTime => form.parse_time_input(),
+        FormField::Duration => form.parse_duration_input(),
+        _ => {}
+    }
+}
 
 pub fn handle_key(key: KeyCode, state: &mut AppState) {
     let Some(form) = state.event_form.as_mut() else {
@@ -8,19 +16,11 @@ pub fn handle_key(key: KeyCode, state: &mut AppState) {
 
     match key {
         KeyCode::Tab => {
-            match form.active_field {
-                FormField::StartTime => form.parse_time_input(),
-                FormField::Duration => form.parse_duration_input(),
-                _ => {}
-            }
+            parse_current_field(form);
             form.next_field();
         }
         KeyCode::BackTab => {
-            match form.active_field {
-                FormField::StartTime => form.parse_time_input(),
-                FormField::Duration => form.parse_duration_input(),
-                _ => {}
-            }
+            parse_current_field(form);
             form.prev_field();
         }
         KeyCode::Backspace => {

@@ -104,7 +104,7 @@ impl Cache {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use crate::calendar::EventStatus;
+    use crate::calendar::{EventStatus, DEFAULT_CALENDAR_ID};
 
     fn create_test_cache() -> Cache {
         let conn = Connection::open_in_memory().unwrap();
@@ -117,7 +117,7 @@ mod tests {
         let start = Utc::now();
         Event {
             id: id.to_string(),
-            calendar_id: "primary".to_string(),
+            calendar_id: DEFAULT_CALENDAR_ID.to_string(),
             title: title.to_string(),
             description: None,
             location: None,
