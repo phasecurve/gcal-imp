@@ -19,9 +19,7 @@ fn expand_anchor_tags(html: &str) -> String {
             let url = caps.get(1).map(|m| m.as_str()).unwrap_or_default().trim();
             let text = caps.get(2).map(|m| m.as_str()).unwrap_or_default().trim();
 
-            if text.is_empty() {
-                url.to_string()
-            } else if url.eq_ignore_ascii_case(text) {
+            if text.is_empty() || url.eq_ignore_ascii_case(text) {
                 url.to_string()
             } else {
                 format!("{text} ({url})")

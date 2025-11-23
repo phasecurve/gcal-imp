@@ -70,7 +70,7 @@ pub fn render(f: &mut Frame, app: &AppState, area: ratatui::layout::Rect) {
             let month_idx = row * 3 + col;
             if month_idx < layout.months.len() {
                 let month = &layout.months[month_idx];
-                let weeks = (month.days.len() + month.first_weekday as usize + 6) / 7;
+                let weeks = (month.days.len() + month.first_weekday as usize).div_ceil(7);
                 max_weeks = max_weeks.max(weeks);
             }
         }

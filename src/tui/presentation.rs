@@ -53,7 +53,7 @@ pub fn ui(f: &mut Frame, app: &AppState) {
     calendar_views::event_list::render(f, app, chunks[2]);
 
     let status_text = if matches!(app.mode, Mode::Command) {
-        format!("{}", app.command_buffer)
+        app.command_buffer.to_string()
     } else {
         format!("Events: {} | Sync: {:?} | Press 'q' to quit, '?' for help",
             app.events.len(), app.sync_status)
