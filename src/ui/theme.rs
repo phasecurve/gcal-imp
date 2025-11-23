@@ -144,15 +144,8 @@ impl Theme {
         }
     }
 
-    pub fn available_themes() -> Vec<String> {
-        vec![
-            "default".to_string(),
-            "gruvbox".to_string(),
-            "nord".to_string(),
-            "dracula".to_string(),
-            "solarized-dark".to_string(),
-            "monokai".to_string(),
-        ]
+    pub fn available_themes() -> Vec<&'static str> {
+        vec!["default", "gruvbox", "nord", "dracula", "solarized-dark", "monokai"]
     }
 }
 
