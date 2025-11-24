@@ -27,7 +27,6 @@ tracing-appender = "0.2"
 regex = "1.10"
 html2text = "0.12"
 async-trait = "0.1"
-arboard = "3.4"
 
 [dev-dependencies]
 tokio-test = "0.4"

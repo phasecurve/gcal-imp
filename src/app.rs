@@ -308,7 +308,7 @@ impl AppState {
 
     pub fn is_date_in_visual_selection(&self, date: NaiveDate) -> bool {
         self.get_visual_selection_range()
-            .map_or(false, |(start, end)| date >= start && date <= end)
+            .is_some_and(|(start, end)| date >= start && date <= end)
     }
 }
 

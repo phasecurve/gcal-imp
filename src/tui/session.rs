@@ -25,7 +25,7 @@ use crate::tui::{
     event_detail::{
         presentation::refresh_detail_view_lines,
         navigation::{next_word_position, prev_word_position, word_end_position, last_char_index, find_first_non_whitespace},
-        text_selection::copy_to_clipboard,
+        text_selection::{copy_to_clipboard, paste_from_clipboard},
         content_formatting::strip_html,
     },
 };
@@ -42,8 +42,8 @@ fn build_event_from_form(
         id,
         calendar_id: DEFAULT_CALENDAR_ID.to_string(),
         title: form.title.clone(),
-        description: if form.description.is_empty() { None } else { Some(form.description.clone()) },
-        location: if form.location.is_empty() { None } else { Some(form.location.clone()) },
+        description: (!form.description.is_empty()).then(|| form.description.clone()),
+        location: (!form.location.is_empty()).then(|| form.location.clone()),
         start,
         end,
         all_day,
@@ -119,10 +119,6 @@ async fn run_app<B: ratatui::backend::Backend>(
         }
 
         terminal.draw(|f| ui(f, app))?;
-
-        while event::poll(std::time::Duration::from_millis(0))? {
-            let _ = event::read()?;
-        }
 
         if let TermEvent::Key(key) = event::read()?
             && key.kind == KeyEventKind::Press
@@ -299,6 +295,10 @@ fn handle_detail_view_keys(code: KeyCode, app: &mut AppState) -> io::Result<bool
             handle_yank(app);
             Ok(false)
         }
+        KeyCode::Char('p') => {
+            handle_paste(app);
+            Ok(false)
+        }
         KeyCode::Char('q') => Ok(true),
         KeyCode::Char('v') => {
             if app.detail_view_visual_start.is_some() {
@@ -347,27 +347,17 @@ fn handle_open_url(app: &AppState) {
         }
 
         if let Some(location) = &event.location {
-            all_lines.push(String::new());
-            all_lines.push("📍 Location:".to_string());
-            all_lines.push(format!("   {}", location));
+            all_lines.extend([String::new(), "📍 Location:".to_string(), format!("   {}", location)]);
         }
 
         if let Some(desc) = &event.description {
-            all_lines.push(String::new());
-            all_lines.push("📝 Description:".to_string());
-            all_lines.push(String::new());
-            let clean_desc = strip_html(desc);
-            for line in clean_desc.lines() {
-                all_lines.push(line.to_string());
-            }
+            all_lines.extend([String::new(), "📝 Description:".to_string(), String::new()]);
+            all_lines.extend(strip_html(desc).lines().map(String::from));
         }
 
         if !event.attendees.is_empty() {
-            all_lines.push(String::new());
-            all_lines.push("👥 Attendees:".to_string());
-            for attendee in &event.attendees {
-                all_lines.push(format!("   • {}", attendee));
-            }
+            all_lines.extend([String::new(), "👥 Attendees:".to_string()]);
+            all_lines.extend(event.attendees.iter().map(|a| format!("   • {}", a)));
         }
 
         if app.detail_view_cursor_line < all_lines.len() {
@@ -385,13 +375,10 @@ fn handle_open_url(app: &AppState) {
                     .expect("invalid plain url regex")
             });
 
-            let url_to_open = if let Some(cap) = markdown_link_pattern.captures(line_text) {
-                cap.get(2).map(|m| m.as_str())
-            } else if let Some(cap) = plain_url_pattern.captures(line_text) {
-                cap.get(1).map(|m| m.as_str())
-            } else {
-                None
-            };
+            let url_to_open = markdown_link_pattern.captures(line_text)
+                .and_then(|cap| cap.get(2))
+                .or_else(|| plain_url_pattern.captures(line_text).and_then(|cap| cap.get(1)))
+                .map(|m| m.as_str());
 
             if let Some(url) = url_to_open {
                 tracing::info!("Opening URL: {}", url);
@@ -413,6 +400,8 @@ fn handle_yank(app: &mut AppState) {
         let text_to_yank = if let Some((start_line, start_col)) = app.detail_view_visual_start {
             let end_line = app.detail_view_cursor_line;
             let end_col = app.detail_view_cursor_col;
+
+            tracing::info!("Visual selection: start=({}, {}), end=({}, {})", start_line, start_col, end_line, end_col);
 
             let (start_line, start_col, end_line, end_col) = if start_line < end_line || (start_line == end_line && start_col <= end_col) {
                 (start_line, start_col, end_line, end_col)
@@ -454,8 +443,21 @@ fn handle_yank(app: &mut AppState) {
         };
 
         if !text_to_yank.is_empty() {
-            tracing::info!("About to yank {} bytes: '{}'", text_to_yank.len(), text_to_yank);
-            let _ = copy_to_clipboard(&text_to_yank);
+            tracing::info!("Yanking {} bytes: '{}'", text_to_yank.len(), text_to_yank);
+            if let Err(e) = copy_to_clipboard(&text_to_yank) {
+                tracing::error!("Clipboard yank failed: {}", e);
+            }
+        }
+    }
+}
+
+fn handle_paste(_app: &AppState) {
+    match paste_from_clipboard() {
+        Ok(text) => {
+            tracing::info!("Clipboard contains {} bytes: '{}'", text.len(), text);
+        }
+        Err(e) => {
+            tracing::error!("Clipboard paste failed: {}", e);
         }
     }
 }
